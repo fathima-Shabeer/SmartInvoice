@@ -91,5 +91,5 @@ The database is created and filled with demo data on first run.
 
 ## Author
 
-**Your name** · [LinkedIn](www.linkedin.com/in/fathima-shabeer1) · [Email](skyclrcode01@gmail.com)
+**Your name** ·[Fathima-Shabeer]
 
