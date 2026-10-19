@@ -91,5 +91,5 @@ The database is created and filled with demo data on first run.
 
 ## Author
 
-**Your name** ·[Fathima-Shabeer]
+ ·[Fathima-Shabeer]
 
