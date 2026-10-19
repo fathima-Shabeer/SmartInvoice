@@ -85,9 +85,9 @@ The database is created and filled with demo data on first run.
 - [ ] Unit tests for the anomaly rules
 - [ ] Docker and CI/CD with GitHub Actions
 
-## What I learned
 
-_Write 3 or 4 sentences in your own words. For example: what was hardest, what you would change, and what you would build next._
+
+
 
 ## Author
 
