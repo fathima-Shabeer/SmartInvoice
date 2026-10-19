@@ -2,9 +2,8 @@
 
 A smart invoice and expense management web app built with ASP.NET Core 8, Entity Framework Core, and SQL Server. It checks every invoice for problems before a manager approves it.
 
-![Dashboard](docs/screenshots/01-dashboard.png)
 
-**Live demo:** _add your link here_ · **Demo video:** _add your link here_
+
 
 ## The problem
 
@@ -25,15 +24,6 @@ Finance teams receive invoices from many vendors. Duplicates, wrong VAT, and unu
 - **CSV export** that opens correctly in Excel
 - **Responsive layout** for desktop and mobile
 
-## Screenshots
-
-| Dashboard | Invoice list |
-|---|---|
-| ![Dashboard](docs/screenshots/01-dashboard.png) | ![Invoices](docs/screenshots/02-invoices.png) |
-
-| New invoice | Flagged invoice |
-|---|---|
-| ![New invoice](docs/screenshots/03-new-invoice.png) | ![Flagged invoice](docs/screenshots/04-flagged-invoice.png) |
 
 ## Tech stack
 
