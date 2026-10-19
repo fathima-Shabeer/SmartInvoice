@@ -1,0 +1,66 @@
+@model Invoice
+@{
+    ViewData["Title"] = Model.InvoiceNumber;
+    var open = Model.Status is InvoiceStatus.Submitted or InvoiceStatus.NeedsReview;
+}
+
+<header class="page-head">
+    <div>
+        <a asp-action="Index" class="link-quiet back"><i class="bi bi-arrow-left"></i> Invoices</a>
+        <h1>@Model.Vendor?.Name</h1>
+        <p class="sub">@Model.InvoiceNumber · @Model.Date.ToString("dd MMMM yyyy")</p>
+    </div>
+    <partial name="_StatusBadge" model="Model.Status" />
+</header>
+
+@if (Model.Flags.Any())
+{
+    <section class="panel attention">
+        <h2 class="panel-title"><i class="bi bi-flag-fill"></i> Check before approving</h2>
+        <ul class="issue-list">
+            @foreach (var f in Model.Flags)
+            {
+                <li><strong>@(f.Type switch { AnomalyType.Duplicate => "Possible duplicate", AnomalyType.Outlier => "Unusual amount", AnomalyType.NewVendor => "New vendor", _ => "VAT mismatch" })</strong> @f.Message</li>
+            }
+        </ul>
+    </section>
+}
+
+<section class="grid-2 detail-grid">
+    <div class="panel">
+        <h2 class="panel-title">Details</h2>
+        <dl class="facts">
+            <div><dt>Category</dt><dd><span class="dot" style="background:@Model.Category?.Color"></span>@Model.Category?.Name</dd></div>
+            <div><dt>Description</dt><dd>@(string.IsNullOrWhiteSpace(Model.Description) ? "None" : Model.Description)</dd></div>
+            <div><dt>Submitted by</dt><dd>@Model.SubmittedBy</dd></div>
+            <div><dt>Added</dt><dd>@Model.CreatedAt.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</dd></div>
+            <div>
+                <dt>File</dt>
+                <dd>
+                    @if (string.IsNullOrEmpty(Model.FilePath)) { <span class="muted">No file attached</span> }
+                    else { <a href="@Model.FilePath" target="_blank" rel="noopener"><i class="bi bi-paperclip"></i> Open invoice file</a> }
+                </dd>
+            </div>
+        </dl>
+    </div>
+
+    <div class="panel">
+        <h2 class="panel-title">Amount</h2>
+        <dl class="sum-list">
+            <div><dt>Subtotal</dt><dd>@Model.Subtotal.ToString("N2")</dd></div>
+            <div><dt>VAT</dt><dd>@Model.VatAmount.ToString("N2")</dd></div>
+            <div class="sum-total"><dt>Total</dt><dd>@Model.Currency @Model.Total.ToString("N2")</dd></div>
+        </dl>
+
+        <div class="decision">
+            @if (open)
+            {
+                <form asp-action="Approve" asp-route-id="@Model.Id" method="post"><button class="btn btn-ok">Approve invoice</button></form>
+                <form asp-action="Reject" asp-route-id="@Model.Id" method="post"><button class="btn btn-line">Reject</button></form>
+            }
+            <form asp-action="Delete" asp-route-id="@Model.Id" method="post" onsubmit="return confirm('Delete invoice @Model.InvoiceNumber? This cannot be undone.');">
+                <button class="btn btn-quiet-danger">Delete</button>
+            </form>
+        </div>
+    </div>
+</section>

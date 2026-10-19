@@ -1,0 +1,152 @@
+@model DashboardViewModel
+@{ ViewData["Title"] = "Overview"; }
+
+<header class="page-head">
+    <div>
+        <h1>Overview</h1>
+        <p class="sub">Spending, approvals and flagged invoices in one place.</p>
+    </div>
+    <a asp-controller="Invoices" asp-action="Create" class="btn btn-ink"><i class="bi bi-plus-lg"></i> New invoice</a>
+</header>
+
+<section class="ledger">
+    <div class="ledger-item ledger-lead">
+        <span class="ledger-label">Spent in @DateTime.Today.ToString("MMMM")</span>
+        <span class="ledger-figure">AED @Model.ThisMonthSpend.ToString("N0")</span>
+        @if (Model.MonthChangePct != 0)
+        {
+            <span class="ledger-note @(Model.MonthChangePct > 0 ? "worse" : "better")">
+                <i class="bi @(Model.MonthChangePct > 0 ? "bi-arrow-up-right" : "bi-arrow-down-right")"></i>
+                @Math.Abs(Model.MonthChangePct)% vs last month
+            </span>
+        }
+    </div>
+    <div class="ledger-item">
+        <span class="ledger-label">Awaiting approval</span>
+        <span class="ledger-figure sm">AED @Model.PendingAmount.ToString("N0")</span>
+        <span class="ledger-note">@Model.PendingCount invoices</span>
+    </div>
+    <div class="ledger-item">
+        <span class="ledger-label">Needs review</span>
+        <span class="ledger-figure sm @(Model.FlaggedCount > 0 ? "flag" : "")">@Model.FlaggedCount</span>
+        <span class="ledger-note">flagged by smart checks</span>
+    </div>
+    <div class="ledger-item">
+        <span class="ledger-label">All invoices</span>
+        <span class="ledger-figure sm">@Model.InvoiceCount</span>
+        <span class="ledger-note">on record</span>
+    </div>
+</section>
+
+<section class="grid-2">
+    <div class="panel">
+        <h2 class="panel-title">Spend, last six months</h2>
+        <div class="chart-box"><canvas id="trendChart" aria-label="Monthly spend chart" role="img"></canvas></div>
+    </div>
+    <div class="panel">
+        <h2 class="panel-title">Where the money goes</h2>
+        <div class="chart-box chart-box-sm"><canvas id="categoryChart" aria-label="Spend by category chart" role="img"></canvas></div>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-head">
+        <h2 class="panel-title">Needs your review</h2>
+        <a asp-controller="Invoices" asp-action="Index" asp-route-status="NeedsReview" class="link-quiet">View all</a>
+    </div>
+    @if (!Model.Flagged.Any())
+    {
+        <p class="empty">Nothing is waiting. New invoices that look unusual will appear here.</p>
+    }
+    else
+    {
+        <div class="flag-list">
+            @foreach (var inv in Model.Flagged)
+            {
+                <a class="flag-row" asp-controller="Invoices" asp-action="Details" asp-route-id="@inv.Id">
+                    <div class="flag-main">
+                        <strong>@inv.Vendor?.Name</strong>
+                        <span class="muted">@inv.InvoiceNumber · @inv.Date.ToString("dd MMM")</span>
+                    </div>
+                    <div class="flag-reasons">
+                        @foreach (var f in inv.Flags)
+                        {
+                            <span class="reason">@f.Message</span>
+                        }
+                    </div>
+                    <div class="amount">AED @inv.Total.ToString("N2")</div>
+                </a>
+            }
+        </div>
+    }
+</section>
+
+<section class="panel">
+    <div class="panel-head">
+        <h2 class="panel-title">Recent invoices</h2>
+        <a asp-controller="Invoices" asp-action="Index" class="link-quiet">All invoices</a>
+    </div>
+    <div class="table-wrap">
+        <table class="ledger-table">
+            <thead><tr><th>Vendor</th><th>Category</th><th>Date</th><th class="num">Total</th><th>Status</th></tr></thead>
+            <tbody>
+            @foreach (var inv in Model.Recent)
+            {
+                <tr class="row-link" onclick="location.href='@Url.Action("Details", "Invoices", new { id = inv.Id })'">
+                    <td><strong>@inv.Vendor?.Name</strong><div class="muted small">@inv.InvoiceNumber</div></td>
+                    <td><span class="dot" style="background:@inv.Category?.Color"></span>@inv.Category?.Name</td>
+                    <td>@inv.Date.ToString("dd MMM yyyy")</td>
+                    <td class="num">@inv.Total.ToString("N2")</td>
+                    <td><partial name="_StatusBadge" model="inv.Status" /></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script>
+        const ink = '#16213A', line = '#E1E4DE', muted = '#667085';
+        Chart.defaults.font.family = "'IBM Plex Sans', sans-serif";
+        Chart.defaults.color = muted;
+
+        new Chart(document.getElementById('trendChart'), {
+            type: 'bar',
+            data: {
+                labels: @Json.Serialize(Model.MonthLabels),
+                datasets: [{
+                    data: @Json.Serialize(Model.MonthTotals),
+                    backgroundColor: (ctx) => ctx.dataIndex === @(Model.MonthLabels.Count - 1) ? '#0E7C66' : '#C9D1CC',
+                    borderRadius: 3,
+                    maxBarThickness: 44
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => 'AED ' + c.parsed.y.toLocaleString() } } },
+                scales: {
+                    x: { grid: { display: false }, border: { display: false } },
+                    y: { grid: { color: line }, border: { display: false }, ticks: { callback: v => v >= 1000 ? (v / 1000) + 'k' : v } }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('categoryChart'), {
+            type: 'doughnut',
+            data: {
+                labels: @Json.Serialize(Model.CategoryLabels),
+                datasets: [{ data: @Json.Serialize(Model.CategoryTotals), backgroundColor: @Json.Serialize(Model.CategoryColors), borderColor: '#fff', borderWidth: 2 }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                cutout: '62%',
+                plugins: {
+                    legend: { position: 'right', labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, padding: 12 } },
+                    tooltip: { callbacks: { label: c => ' AED ' + c.parsed.toLocaleString() } }
+                }
+            }
+        });
+    </script>
+}

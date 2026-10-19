@@ -1,0 +1,69 @@
+@model InvoiceListViewModel
+@{ ViewData["Title"] = "Invoices"; }
+
+<header class="page-head">
+    <div>
+        <h1>Invoices</h1>
+        <p class="sub">Search, filter and approve every invoice.</p>
+    </div>
+    <div class="head-actions">
+        <a asp-action="Export" asp-route-status="@Model.Status" class="btn btn-line"><i class="bi bi-download"></i> Export CSV</a>
+        <a asp-action="Create" class="btn btn-ink"><i class="bi bi-plus-lg"></i> New invoice</a>
+    </div>
+</header>
+
+<section class="panel">
+    <div class="toolbar">
+        <div class="tabs" role="tablist">
+            <a class="tab @(Model.Status is null ? "on" : "")" asp-action="Index" asp-route-q="@Model.Query">All <span>@Model.All</span></a>
+            @foreach (var s in new[] { InvoiceStatus.NeedsReview, InvoiceStatus.Submitted, InvoiceStatus.Approved, InvoiceStatus.Rejected })
+            {
+                var label = s switch { InvoiceStatus.NeedsReview => "Needs review", InvoiceStatus.Submitted => "Awaiting approval", _ => s.ToString() };
+                <a class="tab @(Model.Status == s.ToString() ? "on" : "")" asp-action="Index" asp-route-status="@s" asp-route-q="@Model.Query">
+                    @label <span>@(Model.Counts.TryGetValue(s, out var c) ? c : 0)</span>
+                </a>
+            }
+        </div>
+        <form method="get" class="search">
+            <input type="hidden" name="status" value="@Model.Status" />
+            <i class="bi bi-search"></i>
+            <input type="search" name="q" value="@Model.Query" placeholder="Search vendor or invoice number" aria-label="Search invoices" />
+        </form>
+    </div>
+
+    @if (!Model.Items.Any())
+    {
+        <p class="empty">No invoices match. Clear the filter or <a asp-action="Create">add a new invoice</a>.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="ledger-table">
+                <thead>
+                    <tr><th>Vendor</th><th>Category</th><th>Date</th><th class="num">Total (AED)</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody>
+                @foreach (var inv in Model.Items)
+                {
+                    <tr class="row-link" onclick="location.href='@Url.Action("Details", new { id = inv.Id })'">
+                        <td>
+                            <strong>@inv.Vendor?.Name</strong>
+                            <div class="muted small">@inv.InvoiceNumber</div>
+                        </td>
+                        <td><span class="dot" style="background:@inv.Category?.Color"></span>@inv.Category?.Name</td>
+                        <td>@inv.Date.ToString("dd MMM yyyy")</td>
+                        <td class="num">@inv.Total.ToString("N2")</td>
+                        <td><partial name="_StatusBadge" model="inv.Status" /></td>
+                        <td class="num">
+                            @if (inv.Flags.Count > 0)
+                            {
+                                <span class="flag-count" title="@string.Join(" ", inv.Flags.Select(f => f.Message))"><i class="bi bi-flag-fill"></i> @inv.Flags.Count</span>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

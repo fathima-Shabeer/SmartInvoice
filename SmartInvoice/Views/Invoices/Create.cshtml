@@ -1,0 +1,133 @@
+@model InvoiceFormViewModel
+@{ ViewData["Title"] = "New invoice"; }
+
+<header class="page-head">
+    <div>
+        <h1>New invoice</h1>
+        <p class="sub">Enter the details. Category and checks are filled in for you.</p>
+    </div>
+</header>
+
+<form asp-action="Create" method="post" enctype="multipart/form-data" class="form-grid" novalidate>
+    <section class="panel">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="VendorName" class="form-label"></label>
+                <input asp-for="VendorName" class="form-control" placeholder="For example, Amazon Web Services" autocomplete="off" />
+                <span asp-validation-for="VendorName" class="field-error"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="InvoiceNumber" class="form-label"></label>
+                <input asp-for="InvoiceNumber" class="form-control" placeholder="INV-2026-0042" />
+                <span asp-validation-for="InvoiceNumber" class="field-error"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Date" class="form-label"></label>
+                <input asp-for="Date" class="form-control" />
+                <span asp-validation-for="Date" class="field-error"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Subtotal" class="form-label"></label>
+                <input asp-for="Subtotal" class="form-control" type="number" step="0.01" min="0" inputmode="decimal" />
+                <span asp-validation-for="Subtotal" class="field-error"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="VatAmount" class="form-label"></label>
+                <input asp-for="VatAmount" class="form-control" type="number" step="0.01" min="0" inputmode="decimal" />
+                <span asp-validation-for="VatAmount" class="field-error"></span>
+            </div>
+            <div class="col-12">
+                <label asp-for="Description" class="form-label"></label>
+                <input asp-for="Description" class="form-control" placeholder="What was this for?" />
+                <span asp-validation-for="Description" class="field-error"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="CategoryId" class="form-label"></label>
+                <select asp-for="CategoryId" class="form-select" asp-items="@(new SelectList(Model.Categories, "Id", "Name"))">
+                    <option value="">Choose for me</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="SubmittedBy" class="form-label"></label>
+                <input asp-for="SubmittedBy" class="form-control" placeholder="Your name" />
+                <span asp-validation-for="SubmittedBy" class="field-error"></span>
+            </div>
+            <div class="col-12">
+                <label asp-for="File" class="form-label"></label>
+                <input asp-for="File" class="form-control" type="file" accept=".pdf,.png,.jpg,.jpeg" />
+                <div class="form-text">PDF, PNG or JPG, up to 5 MB.</div>
+                <span asp-validation-for="File" class="field-error"></span>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-ink">Save invoice</button>
+            <a asp-action="Index" class="btn btn-line">Cancel</a>
+        </div>
+    </section>
+
+    <aside class="panel summary" aria-live="polite">
+        <h2 class="panel-title">Summary</h2>
+        <dl class="sum-list">
+            <div><dt>Subtotal</dt><dd id="sumSubtotal">0.00</dd></div>
+            <div><dt>VAT</dt><dd id="sumVat">0.00</dd></div>
+            <div class="sum-total"><dt>Total</dt><dd id="sumTotal">AED 0.00</dd></div>
+        </dl>
+        <div class="assist">
+            <span class="assist-label">Suggested category</span>
+            <div id="suggestion" class="assist-value muted">Type a vendor or description.</div>
+        </div>
+        <p class="assist-note">After you save, the invoice is checked for duplicates, unusual amounts, new vendors and VAT that is not 5%.</p>
+    </aside>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        const $ = id => document.getElementById(id);
+        const subtotal = $('Subtotal'), vat = $('VatAmount'), vendor = $('VendorName'), desc = $('Description'), cat = $('CategoryId');
+        let vatEdited = vat.value !== '';
+        const fmt = n => (isNaN(n) ? 0 : n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        function refresh() {
+            const s = parseFloat(subtotal.value), v = parseFloat(vat.value);
+            $('sumSubtotal').textContent = fmt(s);
+            $('sumVat').textContent = fmt(v);
+            $('sumTotal').textContent = 'AED ' + fmt((isNaN(s) ? 0 : s) + (isNaN(v) ? 0 : v));
+        }
+
+        vat.addEventListener('input', () => { vatEdited = true; refresh(); });
+        subtotal.addEventListener('input', () => {
+            if (!vatEdited) {
+                const s = parseFloat(subtotal.value);
+                vat.value = isNaN(s) ? '' : (s * 0.05).toFixed(2);
+            }
+            refresh();
+        });
+
+        let timer;
+        function suggest() {
+            clearTimeout(timer);
+            timer = setTimeout(async () => {
+                const box = $('suggestion');
+                if (!vendor.value.trim() && !desc.value.trim()) { box.className = 'assist-value muted'; box.textContent = 'Type a vendor or description.'; return; }
+                try {
+                    const res = await fetch('@Url.Action("Suggest", "Invoices")?vendor=' + encodeURIComponent(vendor.value) + '&description=' + encodeURIComponent(desc.value));
+                    const data = await res.json();
+                    if (data.found) {
+                        box.className = 'assist-value';
+                        box.innerHTML = '<span class="dot" style="background:' + data.color + '"></span>' + data.name;
+                    } else {
+                        box.className = 'assist-value muted';
+                        box.textContent = 'No match yet. It will be filed under Other unless you choose one.';
+                    }
+                } catch { /* suggestion is optional */ }
+            }, 250);
+        }
+        vendor.addEventListener('input', suggest);
+        desc.addEventListener('input', suggest);
+        refresh(); suggest();
+    </script>
+}

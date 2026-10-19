@@ -1,0 +1,12 @@
+@model InvoiceStatus
+@{
+    var (css, label) = Model switch
+    {
+        InvoiceStatus.NeedsReview => ("s-review", "Needs review"),
+        InvoiceStatus.Submitted => ("s-submitted", "Awaiting approval"),
+        InvoiceStatus.Approved => ("s-approved", "Approved"),
+        InvoiceStatus.Rejected => ("s-rejected", "Rejected"),
+        _ => ("s-submitted", Model.ToString())
+    };
+}
+<span class="stamp @css">@label</span>
